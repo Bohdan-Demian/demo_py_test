@@ -1,6 +1,15 @@
+import os
+
+import pytest
+
 from ecommerce_quality.pipeline import run_pipeline
 
 
+@pytest.mark.local_only
+@pytest.mark.skipif(
+    bool(os.getenv("DATABRICKS_RUNTIME_VERSION")),
+    reason="Uses pytest tmp_path and local relative CSV paths; Databricks demo runs unit-style Spark tests only.",
+)
 def test_run_pipeline_writes_expected_outputs(spark, tmp_path):
     output_path = tmp_path / "processed"
 

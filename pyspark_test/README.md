@@ -66,3 +66,21 @@ python3 -m ecommerce_quality.pipeline \
 - joins між fact і dimension tables
 - aggregation correctness
 - end-to-end pipeline output
+
+## Databricks demo run
+
+Для демо запуску тестів у Databricks Repo відкрий і запусти notebook:
+
+```text
+run_test_notebook.ipynb
+```
+
+Notebook:
+
+- встановлює `pytest` і `chispa`
+- додає `src/` у `sys.path`
+- використовує активну Databricks SparkSession
+- запускає тести командою `pytest`
+- пропускає тести з marker `local_only`
+
+Тест [tests/test_pipeline_integration.py](tests/test_pipeline_integration.py) позначений як `local_only`, бо він використовує локальні filesystem шляхи і `tmp_path`. Для Databricks demo краще запускати unit-style Spark tests з in-memory DataFrame.
