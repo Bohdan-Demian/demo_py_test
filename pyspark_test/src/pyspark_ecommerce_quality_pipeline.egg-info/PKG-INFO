@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: pyspark-ecommerce-quality-pipeline
+Version: 0.1.0
+Summary: Training project for PySpark ETL and Big Data QA tests
+Requires-Python: >=3.10
+Requires-Dist: pyspark<4.0,>=3.5
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: chispa>=0.10.0; extra == "dev"

@@ -1,0 +1,6 @@
+user_id,email,country,created_at
+u-001,alice@example.com,PL,2026-01-10
+u-002,bob@example.com,UA,2026-02-12
+u-003,carol@example.com,DE,2026-03-05
+u-004,dana@example.com,PL,2026-04-01
+

@@ -1,0 +1,5 @@
+pyspark<4.0,>=3.5
+
+[dev]
+pytest>=8.0
+chispa>=0.10.0
