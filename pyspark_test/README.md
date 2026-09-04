@@ -82,5 +82,15 @@ Notebook:
 - використовує активну Databricks SparkSession
 - запускає тести командою `pytest`
 - пропускає тести з marker `local_only`
+- зберігає latest run summary у Delta table `pyspark_demo_test_run_results`
+- зберігає test case details у Delta table `pyspark_demo_test_case_results`
 
 Тест [tests/test_pipeline_integration.py](tests/test_pipeline_integration.py) позначений як `local_only`, бо він використовує локальні filesystem шляхи і `tmp_path`. Для Databricks demo краще запускати unit-style Spark tests з in-memory DataFrame.
+
+Після запуску тестів відкрий notebook-dashboard:
+
+```text
+latest_test_run_dashboard.ipynb
+```
+
+Він показує latest run summary, список test cases для останнього запуску і коротку історію запусків.
