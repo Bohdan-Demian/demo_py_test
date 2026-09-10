@@ -1,96 +1,223 @@
-# PySpark E-commerce Quality Pipeline
+# PySpark Migration Validation Framework
 
-Навчальний Big Data QA проєкт для практики PySpark і тестів навколо ETL pipeline.
+Small PySpark/Databricks demo project for AWS -> GCP migration parity testing.
 
-## Що є всередині
+The main validation flow is production-like:
 
-- `data/raw/` - маленькі sample CSV datasets.
-- `src/ecommerce_quality/` - PySpark код для ingestion, cleaning, transformation і quality checks.
-- `tests/` - приклади unit та integration tests через `pytest`.
-- `pyproject.toml` - залежності та налаштування pytest.
+```text
+Databricks Job
+  -> thin Databricks notebook
+  -> Python validation runner
+  -> load left/right DataFrames
+  -> run reusable checks
+  -> write Delta result tables
+  -> fail the job when blocking checks fail
+```
 
-## Бізнес-сценарій
+The validation code does not depend on `dbutils` or notebook state. The notebook only reads widgets and calls the Python runner.
 
-Pipeline читає e-commerce події, користувачів і товари, чистить raw data, відокремлює погані записи, будує:
+## Project Layout
 
-- `fact_orders`
-- `daily_sales`
-- `customer_summary`
-- `bad_records`
+```text
+configs/
+  demo.yaml
 
-## Швидкий старт
+notebooks/
+  run_validation.py
 
-PySpark потребує Java Runtime. На macOS найпростіший варіант:
+src/
+  validation/
+    runner.py
+    config.py
+    core/
+      models.py
+      result.py
+    sources/
+      databricks.py
+    checks/
+      schema.py
+      partition.py
+      row_count.py
+      key_parity.py
+      duplicates.py
+      null_rate.py
+      aggregates.py
+      partition_hash.py
+      row_parity.py
+    reporting/
+      delta_reporter.py
+
+tests/
+  unit/
+  integration/
+```
+
+Legacy e-commerce demo code still exists in `src/ecommerce_quality/` with the original tests in `tests/test_*.py`.
+
+## Local Development
+
+PySpark needs Java. On macOS with Homebrew:
 
 ```bash
 brew install openjdk@17
 ```
 
+Create a virtual environment and install the project:
+
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e ".[dev]"
 ```
 
-Якщо у твоєму середовищі старий `pip` не підтримує editable install, можна використати простіший шлях:
+Run all tests:
 
 ```bash
-pip install pyspark chispa pytest
-PYTHONPATH=src pytest
+make test
 ```
 
-Запуск pipeline локально:
+Run the Databricks-applicable pytest subset:
+
+```bash
+make databricks-test
+```
+
+## Validation Config
+
+The demo config lives in:
+
+```text
+configs/demo.yaml
+```
+
+For the first smoke test both sides point to the same Databricks table:
+
+```yaml
+left:
+  table: workspace.default.orderscsv
+
+right:
+  table: workspace.default.orderscsv
+```
+
+Later, replace them with separate AWS and GCP output tables:
+
+```yaml
+left:
+  table: workspace.default.aws_orders
+
+right:
+  table: workspace.default.gcp_orders
+```
+
+Do not invent key/window columns. Inspect the Databricks table schemas first, then fill:
+
+```yaml
+keys:
+  - order_id
+
+window:
+  column: order_date
+```
+
+The runtime window uses the same semantics on both sides:
+
+```text
+window_column >= window_start
+AND window_column < window_end
+```
+
+## Checks
+
+Implemented checks:
+
+- `schema` - column names and Spark data types
+- `partition` - partition coverage and row counts per partition
+- `row_count` - total row count with percentage tolerance
+- `key_parity` - missing/extra business keys
+- `duplicates` - duplicate business keys on both sides
+- `null_rate` - null count/rate per configured column
+- `aggregates` - grouped business metrics
+- `partition_hash` - scalable partition-level content fingerprint
+- `row_parity` - key-based row comparison with excluded columns and numeric tolerance
+
+Each check returns a structured `CheckResult`, not a plain boolean.
+
+## Databricks Execution
+
+Use this notebook as the Databricks Job task:
+
+```text
+notebooks/run_validation.py
+```
+
+Notebook widgets:
+
+```text
+entity
+environment
+window_start
+window_end
+config_path
+```
+
+Example windowed run:
+
+```text
+entity=orders
+environment=demo
+window_start=2026-09-01
+window_end=2026-09-02
+config_path=/Workspace/Repos/<user>/<repo>/pyspark_test/configs/demo.yaml
+```
+
+The notebook:
+
+- loads YAML config
+- calls `validation.runner.run_validation(...)`
+- displays run/check result rows
+- raises `RuntimeError` if any `BLOCKING` check fails
+
+It does not run pytest.
+
+## Result Tables
+
+The Delta reporter appends to:
+
+```text
+workspace.default.validation_runs
+workspace.default.validation_check_results
+```
+
+These tables support:
+
+- latest validation run
+- overall status
+- failed checks
+- validation window
+- check values/differences
+- run history
+
+The old pytest reporting tables are left untouched:
+
+```text
+workspace.default.pyspark_demo_test_run_results
+workspace.default.pyspark_demo_test_case_results
+```
+
+## Pytest Role
+
+Pytest tests the framework itself with small synthetic Spark DataFrames.
+
+Unit tests do not require production Databricks tables. They verify matching data, mismatches, edge cases, tolerance logic, samples, and runner behavior.
+
+## Legacy Demo
+
+The original e-commerce ETL demo can still be run locally:
 
 ```bash
 make pipeline
 ```
 
-Або напряму:
-
-```bash
-source .env.example
-python3 -m ecommerce_quality.pipeline \
-  --events data/raw/events.csv \
-  --users data/raw/users.csv \
-  --products data/raw/products.csv \
-  --output data/processed
-```
-
-## Що тестувати як Big Data QA
-
-- schema validation
-- null handling
-- duplicate handling
-- invalid records
-- joins між fact і dimension tables
-- aggregation correctness
-- end-to-end pipeline output
-
-## Databricks demo run
-
-Для демо запуску тестів у Databricks Repo відкрий і запусти notebook:
-
-```text
-run_test_notebook.ipynb
-```
-
-Notebook:
-
-- встановлює `pytest` і `chispa`
-- додає `src/` у `sys.path`
-- використовує активну Databricks SparkSession
-- запускає тести командою `pytest`
-- пропускає тести з marker `local_only`
-- зберігає latest run summary у Delta table `pyspark_demo_test_run_results`
-- зберігає test case details у Delta table `pyspark_demo_test_case_results`
-
-Тест [tests/test_pipeline_integration.py](tests/test_pipeline_integration.py) позначений як `local_only`, бо він використовує локальні filesystem шляхи і `tmp_path`. Для Databricks demo краще запускати unit-style Spark tests з in-memory DataFrame.
-
-Після запуску тестів відкрий notebook-dashboard:
-
-```text
-latest_test_run_dashboard.ipynb
-```
-
-Він показує latest run summary, список test cases для останнього запуску і коротку історію запусків.
+It reads `data/raw/*.csv` and writes sample Parquet outputs to `data/processed/`.

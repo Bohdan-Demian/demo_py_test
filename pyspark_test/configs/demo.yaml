@@ -1,0 +1,79 @@
+entity: orders
+environment: demo
+
+left:
+  table: workspace.default.orderscsv
+
+right:
+  table: workspace.default.orderscsv
+
+# Fill this with the real business key column after inspecting the Databricks table schema.
+# Example:
+# keys:
+#   - order_id
+keys: []
+
+window:
+  # Fill this when a common logical data window exists.
+  # Runtime semantics: column >= window_start AND column < window_end
+  column: null
+
+exclude_columns: []
+
+checks:
+  schema:
+    enabled: true
+    severity: BLOCKING
+    enforce_order: false
+
+  partition:
+    enabled: false
+    severity: BLOCKING
+    column: null
+
+  row_count:
+    enabled: true
+    severity: BLOCKING
+    tolerance_pct: 0
+
+  key_parity:
+    enabled: false
+    severity: BLOCKING
+    sample_limit: 20
+
+  duplicates:
+    enabled: false
+    severity: BLOCKING
+    sample_limit: 20
+
+  null_rate:
+    enabled: false
+    severity: NON_BLOCKING
+    columns: []
+    tolerances_pct: {}
+
+  aggregates:
+    enabled: false
+    severity: BLOCKING
+    group_by: []
+    metrics: {}
+    tolerance: 0
+
+  partition_hash:
+    enabled: false
+    severity: BLOCKING
+    partition_column: null
+    business_columns: []
+
+  row_parity:
+    enabled: false
+    severity: BLOCKING
+    compare_columns: null
+    exclude_columns: []
+    numeric_tolerances: {}
+
+reporting:
+  enabled: true
+  runs_table: workspace.default.validation_runs
+  checks_table: workspace.default.validation_check_results
+
