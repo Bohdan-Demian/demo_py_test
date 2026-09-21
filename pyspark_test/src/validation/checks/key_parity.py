@@ -1,3 +1,9 @@
+"""Business key parity check.
+
+Compares distinct business keys between left and right DataFrames. It returns
+counts and limited samples of keys missing on the right or extra on the right.
+"""
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
@@ -15,12 +21,15 @@ def check_key_parity(
     severity: str = "BLOCKING",
     sample_limit: int = 20,
 ) -> CheckResult:
+    # Compare only distinct business keys, not full duplicated rows.
     left_keys = left_df.select(*key_columns).dropDuplicates()
     right_keys = right_df.select(*key_columns).dropDuplicates()
 
+    # Anti-joins find keys that exist only on one side.
     missing_on_right = left_keys.join(right_keys, on=key_columns, how="left_anti")
     extra_on_right = right_keys.join(left_keys, on=key_columns, how="left_anti")
 
+    # Count mismatches in Spark; collect only small diagnostic samples.
     left_key_count = left_keys.count()
     right_key_count = right_keys.count()
     missing_count = missing_on_right.count()
@@ -45,4 +54,3 @@ def check_key_parity(
         difference={"missing_on_right": missing_count, "extra_on_right": extra_count},
         details=details,
     )
-

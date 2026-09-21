@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyspark-ecommerce-quality-pipeline"
+name = "pyspark-migration-validation"
 version = "0.1.0"
-description = "Training project for PySpark ETL and Big Data QA tests"
+description = "PySpark validation framework for AWS to GCP migration parity testing"
 requires-python = ">=3.10"
 dependencies = [
     "pyspark>=3.5,<4.0",

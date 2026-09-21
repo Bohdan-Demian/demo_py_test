@@ -19,7 +19,7 @@ def spark():
         # Local
         session = (
             SparkSession.builder
-            .appName("pyspark-ecommerce-quality-tests")
+            .appName("pyspark-migration-validation-tests")
             .master("local[2]")
             .config("spark.sql.shuffle.partitions", "2")
             .getOrCreate()

@@ -1,3 +1,10 @@
+"""Row-level parity check.
+
+Joins left and right DataFrames by business keys and detects missing rows,
+extra rows, and changed business values. Supports excluded metadata columns,
+numeric tolerances, composite keys, and null-safe comparisons.
+"""
+
 from __future__ import annotations
 
 from functools import reduce
@@ -23,14 +30,18 @@ def check_row_parity(
     exclude_columns = exclude_columns or []
     numeric_tolerances = numeric_tolerances or {}
     if not key_columns:
+        # Row parity needs business keys to avoid accidental cartesian comparison.
         return fail_result(
             "row_parity",
             severity,
             details={"reason": "RowParityCheck requires at least one key column"},
         )
 
+    # Resolve compared business columns after removing keys and excluded metadata.
     resolved_compare_columns = _resolve_compare_columns(left_df, right_df, key_columns, compare_columns, exclude_columns)
     required_columns = set(key_columns) | set(resolved_compare_columns)
+
+    # Validate all key and compared columns before building joins.
     missing_columns = _missing_columns(left_df, right_df, required_columns)
     if any(missing_columns.values()):
         return fail_result(
@@ -43,6 +54,7 @@ def check_row_parity(
             },
         )
 
+    # Distinct key anti-joins identify missing and extra rows.
     left_keys = left_df.select(*key_columns).dropDuplicates()
     right_keys = right_df.select(*key_columns).dropDuplicates()
     missing_on_right = left_keys.join(right_keys, on=key_columns, how="left_anti")
@@ -50,8 +62,11 @@ def check_row_parity(
 
     left = left_df.alias("left")
     right = right_df.alias("right")
+
+    # Inner join aligns rows that exist on both sides for value comparison.
     joined = left.join(right, on=_join_condition(key_columns), how="inner")
 
+    # Build one mismatch indicator column per compared business column.
     comparison_columns = [
         _mismatch_indicator(column, numeric_tolerances.get(column)).alias(f"__mismatch_{column}")
         for column in resolved_compare_columns
@@ -62,10 +77,13 @@ def check_row_parity(
     compared_row_count = joined.count()
 
     if comparison_columns:
+        # Keep only keys and mismatch indicators to reduce downstream shuffle width.
         compared = joined.select(
             *[_qualified_column("left", column).alias(column) for column in key_columns],
             *comparison_columns,
         )
+
+        # Sum indicator columns to find rows with at least one changed value.
         mismatch_sum = reduce(
             lambda left_col, right_col: left_col + right_col,
             [F.col(f"__mismatch_{column}") for column in resolved_compare_columns],

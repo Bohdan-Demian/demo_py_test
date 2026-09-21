@@ -55,6 +55,9 @@ checks:
   aggregates:
     enabled: false
     severity: BLOCKING
+    # Supported metrics: sum, count, count_distinct, min, max, avg.
+    # Good migration smoke metrics: sum(amount), count(order_id),
+    # count_distinct(customer_id), min/max(created_at), min/max(amount).
     group_by: []
     metrics: {}
     tolerance: 0
@@ -76,4 +79,3 @@ reporting:
   enabled: true
   runs_table: workspace.default.validation_runs
   checks_table: workspace.default.validation_check_results
-

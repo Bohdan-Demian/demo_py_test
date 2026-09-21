@@ -1,3 +1,10 @@
+"""Partition coverage check.
+
+Compares which logical partitions exist on both sides and whether each
+partition has the same row count. Use this with business windows such as
+order_date, event_date, ingestion_date, region, or tenant.
+"""
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
@@ -16,12 +23,14 @@ def check_partition(
     sample_limit: int = 20,
 ) -> CheckResult:
     if not partition_column:
+        # No partition configured means this optional check is intentionally skipped.
         return pass_result(
             "partition",
             severity,
             details={"enabled": False, "reason": "No partition_column configured"},
         )
 
+    # Validate that both sides contain the configured partition column.
     missing_columns = _missing_columns(left_df, right_df, partition_column)
     if any(missing_columns.values()):
         return fail_result(
@@ -30,9 +39,11 @@ def check_partition(
             details={"partition_column": partition_column, "missing_columns": missing_columns},
         )
 
+    # Aggregate row counts by partition on both sides.
     left_counts = _partition_counts(left_df, partition_column, "left_count")
     right_counts = _partition_counts(right_df, partition_column, "right_count")
 
+    # Full outer join exposes missing, extra, and count-mismatched partitions.
     joined = left_counts.join(right_counts, on=partition_column, how="full_outer").fillna(
         {"left_count": 0, "right_count": 0}
     )

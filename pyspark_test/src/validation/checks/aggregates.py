@@ -1,3 +1,9 @@
+"""Business aggregate parity check.
+
+Compares grouped metrics between left and right DataFrames. Supported metrics
+include sum, count, count_distinct, min, max, and avg.
+"""
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
@@ -20,7 +26,10 @@ def check_aggregates(
     tolerance: float = 0,
     sample_limit: int = 20,
 ) -> CheckResult:
+    # Resolve metric aliases up front so left/right aggregate columns can be compared.
     aliases = _metric_aliases(metrics)
+
+    # Fail early on unsupported metrics or missing required columns.
     unsupported = _unsupported_metrics(metrics)
     missing_columns = _missing_columns(left_df, right_df, group_by, metrics)
     if unsupported or any(missing_columns.values()):
@@ -35,12 +44,15 @@ def check_aggregates(
             },
         )
 
+    # Build grouped aggregate DataFrames for both sides using the same config.
     left_agg = _aggregate(left_df, group_by, metrics, "left")
     right_agg = _aggregate(right_df, group_by, metrics, "right")
 
+    # Join aggregate rows by group keys; use a synthetic key for global aggregates.
     join_columns = group_by if group_by else ["__validation_group"]
     joined = left_agg.join(right_agg, on=join_columns, how="full_outer")
 
+    # Mark each metric whose numeric difference is above tolerance.
     comparisons = []
     for alias in aliases:
         left_col = F.col(f"left__{alias}")
@@ -48,6 +60,7 @@ def check_aggregates(
         difference_col = F.abs(F.coalesce(left_col, F.lit(0.0)) - F.coalesce(right_col, F.lit(0.0)))
         comparisons.append(F.when(difference_col > F.lit(tolerance), F.lit(alias)).otherwise(F.lit("__match__")))
 
+    # Keep only groups where at least one aggregate metric differs.
     mismatch_array = F.array_remove(F.array(*comparisons), "__match__")
     compared = joined.withColumn("mismatched_metrics", mismatch_array).withColumn(
         "mismatch_count", F.size("mismatched_metrics")
@@ -77,6 +90,7 @@ def _aggregate(df: DataFrame, group_by: list[str], metrics: dict[str, list[str]]
     working_df = df
     grouping_columns = group_by
     if not group_by:
+        # Add a synthetic grouping key so global metrics use the same code path.
         working_df = df.withColumn("__validation_group", F.lit("__all__"))
         grouping_columns = ["__validation_group"]
 

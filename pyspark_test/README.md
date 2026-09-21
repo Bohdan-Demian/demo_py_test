@@ -52,7 +52,7 @@ tests/
   integration/
 ```
 
-Legacy e-commerce demo code still exists in `src/ecommerce_quality/` with the original tests in `tests/test_*.py`.
+Legacy e-commerce source code is no longer part of the active validation test path.
 
 ## Local Development
 
@@ -139,10 +139,28 @@ Implemented checks:
 - `duplicates` - duplicate business keys on both sides
 - `null_rate` - null count/rate per configured column
 - `aggregates` - grouped business metrics
-- `partition_hash` - scalable partition-level content fingerprint
+- `partition_hash` - scalable checksum-style partition-level content fingerprint
 - `row_parity` - key-based row comparison with excluded columns and numeric tolerance
 
 Each check returns a structured `CheckResult`, not a plain boolean.
+
+For migration work, `partition_hash` is often the most practical first deep check. Think of it as a checksum-style validation per partition:
+
+```yaml
+partition_hash:
+  enabled: true
+  severity: BLOCKING
+  partition_column: order_date
+  business_columns:
+    - order_id
+    - customer_id
+    - amount
+    - status
+```
+
+It creates deterministic row fingerprints and aggregates them per partition. If a partition hash differs, use `row_parity` to identify the concrete missing/extra/changed rows.
+
+Detailed check documentation lives in [docs/checks.md](docs/checks.md).
 
 ## Databricks Execution
 
@@ -211,13 +229,3 @@ workspace.default.pyspark_demo_test_case_results
 Pytest tests the framework itself with small synthetic Spark DataFrames.
 
 Unit tests do not require production Databricks tables. They verify matching data, mismatches, edge cases, tolerance logic, samples, and runner behavior.
-
-## Legacy Demo
-
-The original e-commerce ETL demo can still be run locally:
-
-```bash
-make pipeline
-```
-
-It reads `data/raw/*.csv` and writes sample Parquet outputs to `data/processed/`.

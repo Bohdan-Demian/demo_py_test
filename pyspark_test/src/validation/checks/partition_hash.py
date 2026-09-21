@@ -1,3 +1,10 @@
+"""Partition-level checksum-style parity check.
+
+Builds deterministic row fingerprints from selected business columns and
+aggregates them per partition. Use this as a scalable way to locate differing
+partitions before running deeper row-level parity.
+"""
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
@@ -19,7 +26,10 @@ def check_partition_hash(
     severity: str = "BLOCKING",
     sample_limit: int = 20,
 ) -> CheckResult:
+    # Default to common columns when business columns are not explicitly configured.
     columns_to_hash = business_columns or sorted(set(left_df.columns) & set(right_df.columns))
+
+    # Validate all hash input columns before building row fingerprints.
     missing_columns = _missing_columns(left_df, right_df, columns_to_hash, partition_column)
     if any(missing_columns.values()):
         return fail_result(
@@ -32,10 +42,12 @@ def check_partition_hash(
             },
         )
 
+    # Build checksum-style partition fingerprints for both sides.
     left_hashes = _partition_hashes(left_df, partition_column, columns_to_hash, "left")
     right_hashes = _partition_hashes(right_df, partition_column, columns_to_hash, "right")
     join_column = partition_column or GLOBAL_PARTITION_COLUMN
 
+    # Full outer join exposes missing partitions and hash mismatches.
     joined = left_hashes.join(right_hashes, on=join_column, how="full_outer").fillna(
         {"left_row_count": 0, "right_row_count": 0}
     )
@@ -75,11 +87,14 @@ def _partition_hashes(
     partition_key = partition_column or GLOBAL_PARTITION_COLUMN
     working_df = df
     if partition_column is None:
+        # Without a partition column, compare the entire dataset as one partition.
         working_df = df.withColumn(partition_key, F.lit("__all__"))
 
+    # Build a stable row fingerprint from the configured business columns.
     canonical_values = [_canonical_column(column) for column in business_columns]
     row_hash = F.xxhash64(*canonical_values)
 
+    # Aggregate row hash metrics per partition in Spark.
     hashed = working_df.withColumn("__validation_row_hash", row_hash)
     aggregated = hashed.groupBy(partition_key).agg(
         F.count(F.lit(1)).alias(f"{prefix}_row_count"),
@@ -87,6 +102,7 @@ def _partition_hashes(
         F.sum(F.abs(F.col("__validation_row_hash")).cast("decimal(38,0)")).alias(f"{prefix}_hash_abs_sum"),
     )
 
+    # Combine row count and hash aggregates into a comparable partition fingerprint.
     return aggregated.withColumn(
         f"{prefix}_partition_hash",
         F.sha2(
@@ -124,4 +140,3 @@ def _missing_columns(
         "left": sorted(required_columns - left_columns),
         "right": sorted(required_columns - right_columns),
     }
-
