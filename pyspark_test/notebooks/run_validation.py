@@ -29,6 +29,14 @@ from validation.config import load_validation_config
 from validation.reporting.delta_reporter import DeltaReporter
 from validation.runner import run_validation
 
+
+def project_path(raw_path: str) -> str:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return str(path)
+    return str(project_root / path)
+
+
 entity = dbutils.widgets.get("entity")
 environment = dbutils.widgets.get("environment")
 suite = dbutils.widgets.get("suite") or None
@@ -38,7 +46,7 @@ left_table = dbutils.widgets.get("left_table") or None
 right_table = dbutils.widgets.get("right_table") or None
 window_start = dbutils.widgets.get("window_start") or None
 window_end = dbutils.widgets.get("window_end") or None
-config_path = dbutils.widgets.get("config_path") or str(project_root / "configs" / "demo.yaml")
+config_path = project_path(dbutils.widgets.get("config_path") or "configs/demo.yaml")
 write_results = dbutils.widgets.get("write_results").lower() == "true"
 
 config = load_validation_config(config_path, entity=entity, environment=environment)

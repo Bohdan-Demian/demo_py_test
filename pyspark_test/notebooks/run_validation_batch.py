@@ -1,5 +1,6 @@
 # Databricks notebook source
 dbutils.widgets.text("environment", "demo")
+dbutils.widgets.text("runs_json_path", "configs/runs_databricks_example.json")
 dbutils.widgets.text("runs_json", "")
 dbutils.widgets.dropdown("write_results", "false", ["false", "true"])
 dbutils.widgets.dropdown("fail_on_blocking", "true", ["true", "false"])
@@ -25,8 +26,27 @@ from validation.reporting.delta_reporter import DeltaReporter
 from validation.runner import run_validation
 
 
+def project_path(raw_path: str) -> str:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return str(path)
+    return str(project_root / path)
+
+
 def widget_bool(name: str) -> bool:
     return dbutils.widgets.get(name).strip().lower() == "true"
+
+
+def read_runs_json() -> str:
+    raw_json = dbutils.widgets.get("runs_json").strip()
+    if raw_json:
+        return raw_json
+
+    runs_json_path = dbutils.widgets.get("runs_json_path").strip()
+    if not runs_json_path:
+        raise ValueError("Set runs_json or runs_json_path for batch validation")
+
+    return Path(project_path(runs_json_path)).read_text(encoding="utf-8")
 
 
 def load_run_specs(raw_json: str) -> list[dict]:
@@ -46,7 +66,7 @@ def get_run_config_path(run_spec: dict) -> str:
     config_path = run_spec.get("config_path")
     if not config_path:
         raise ValueError("Each runs_json item must include config_path")
-    return config_path
+    return project_path(config_path)
 
 
 def union_dataframes(dataframes):
@@ -54,7 +74,7 @@ def union_dataframes(dataframes):
 
 
 environment = dbutils.widgets.get("environment")
-run_specs = load_run_specs(dbutils.widgets.get("runs_json"))
+run_specs = load_run_specs(read_runs_json())
 write_results = widget_bool("write_results")
 fail_on_blocking = widget_bool("fail_on_blocking")
 

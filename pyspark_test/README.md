@@ -250,11 +250,9 @@ environment=dev
 suite=orders_databricks_parity
 left_type=databricks
 right_type=databricks
-left_table=aws_share.sales.orders
-right_table=gcp_curated.sales.orders
-window_start=2026-09-01
-window_end=2026-09-02
-config_path=/Workspace/Repos/<user>/<repo>/pyspark_test/configs/demo.yaml
+left_table=workspace.default.orderscsv
+right_table=workspace.default.orderscsv
+config_path=configs/orders.yaml
 write_results=false
 ```
 
@@ -294,12 +292,15 @@ Batch widgets:
 
 ```text
 environment
+runs_json_path
 runs_json
 write_results
 fail_on_blocking
 ```
 
-`runs_json` can be a JSON object with a `runs` list or a plain JSON list. Each item must include its own `config_path` and is passed as runtime overrides to the same validation runner.
+By default `runs_json_path=configs/runs_databricks_example.json`, so the batch notebook can run the current self-compare examples without pasting JSON into a widget.
+
+`runs_json` is an optional inline override. It can be a JSON object with a `runs` list or a plain JSON list. Each item must include its own `config_path` and is passed as runtime overrides to the same validation runner.
 
 A ready-to-copy example lives in:
 
@@ -313,7 +314,7 @@ Shape:
 {
   "runs": [
     {
-      "config_path": "/Workspace/Repos/<user>/<repo>/pyspark_test/configs/orders.yaml",
+      "config_path": "configs/orders.yaml",
       "entity": "orders",
       "suite": "orders_databricks_self_compare",
       "left_table": "workspace.default.orderscsv",
