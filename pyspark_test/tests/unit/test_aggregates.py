@@ -62,3 +62,57 @@ def test_aggregates_support_global_metrics_without_group_by(spark):
     )
 
     assert result.status == "PASS"
+
+
+def test_aggregates_support_date_min_max_metrics(spark):
+    left_df = spark.createDataFrame(
+        [
+            (1, "PL", date(2026, 9, 1)),
+            (2, "PL", date(2026, 9, 2)),
+        ],
+        "customer_id int, country string, signup_date date",
+    )
+    right_df = spark.createDataFrame(
+        [
+            (10, "PL", date(2026, 9, 1)),
+            (20, "PL", date(2026, 9, 2)),
+        ],
+        "customer_id int, country string, signup_date date",
+    )
+
+    result = check_aggregates(
+        left_df,
+        right_df,
+        group_by=["country"],
+        metrics={"signup_date": ["min", "max"]},
+    )
+
+    assert result.status == "PASS"
+
+
+def test_aggregates_fail_when_date_min_max_metrics_differ(spark):
+    left_df = spark.createDataFrame(
+        [
+            (1, "PL", date(2026, 9, 1)),
+            (2, "PL", date(2026, 9, 2)),
+        ],
+        "customer_id int, country string, signup_date date",
+    )
+    right_df = spark.createDataFrame(
+        [
+            (10, "PL", date(2026, 9, 1)),
+            (20, "PL", date(2026, 9, 3)),
+        ],
+        "customer_id int, country string, signup_date date",
+    )
+
+    result = check_aggregates(
+        left_df,
+        right_df,
+        group_by=["country"],
+        metrics={"signup_date": ["min", "max"]},
+    )
+
+    assert result.status == "FAIL"
+    assert result.details["mismatched_group_count"] == 1
+    assert "max_signup_date" in result.details["mismatch_sample"][0]["mismatched_metrics"]

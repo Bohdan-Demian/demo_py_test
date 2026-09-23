@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
+from pyspark.sql.types import NumericType
 
 from validation.core.models import CheckResult
 from validation.core.result import fail_result, pass_result
@@ -54,10 +55,8 @@ def check_aggregates(
     # Mark each metric whose numeric difference is above tolerance.
     comparisons = []
     for alias in aliases:
-        left_col = F.col(f"left__{alias}")
-        right_col = F.col(f"right__{alias}")
-        difference_col = F.abs(F.coalesce(left_col, F.lit(0.0)) - F.coalesce(right_col, F.lit(0.0)))
-        comparisons.append(F.when(difference_col > F.lit(tolerance), F.lit(alias)).otherwise(F.lit("__match__")))
+        mismatch_col = _metric_mismatch_expression(joined, alias, tolerance)
+        comparisons.append(F.when(mismatch_col, F.lit(alias)).otherwise(F.lit("__match__")))
 
     # Keep only groups where at least one aggregate metric differs.
     mismatch_array = F.array_remove(F.array(*comparisons), "__match__")
@@ -116,6 +115,30 @@ def _aggregation_expression(column: str, aggregation: str):
         return F.avg(column)
 
     raise ValueError(f"Unsupported aggregation: {aggregation}")
+
+
+def _metric_mismatch_expression(df: DataFrame, alias: str, tolerance: float):
+    left_name = f"left__{alias}"
+    right_name = f"right__{alias}"
+    left_col = F.col(left_name)
+    right_col = F.col(right_name)
+
+    if _is_numeric_column(df, left_name) and _is_numeric_column(df, right_name):
+        # Numeric aggregate metrics can use tolerance-based diff.
+        numeric_difference = F.abs(left_col.cast("double") - right_col.cast("double"))
+        return (
+            # Treat null/null as match, but null/value as mismatch before numeric comparison.
+            F.when(left_col.isNull() & right_col.isNull(), F.lit(False))
+            .when(left_col.isNull() | right_col.isNull(), F.lit(True))
+            .otherwise(numeric_difference > F.lit(tolerance))
+        )
+
+    # Date/string min/max metrics are compared directly to avoid invalid numeric coalesce/casts.
+    return ~left_col.eqNullSafe(right_col)
+
+
+def _is_numeric_column(df: DataFrame, column: str) -> bool:
+    return isinstance(df.schema[column].dataType, NumericType)
 
 
 def _metric_aliases(metrics: dict[str, list[str]]) -> list[str]:
