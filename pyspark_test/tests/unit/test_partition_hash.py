@@ -61,4 +61,3 @@ def test_partition_hash_supports_global_hash_without_partition_column(spark):
     result = check_partition_hash(left_df, right_df, partition_column=None)
 
     assert result.status == "PASS"
-

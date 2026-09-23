@@ -45,4 +45,3 @@ def test_partition_is_noop_when_partition_column_is_not_configured(spark):
 
     assert result.status == "PASS"
     assert result.details["enabled"] is False
-

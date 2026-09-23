@@ -65,4 +65,3 @@ def test_row_parity_supports_composite_keys(spark):
 
     assert result.status == "FAIL"
     assert result.details["mismatched_row_count"] == 1
-

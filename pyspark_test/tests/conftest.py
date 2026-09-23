@@ -1,4 +1,5 @@
 import os
+
 import pytest
 from pyspark.sql import SparkSession
 
@@ -18,8 +19,7 @@ def spark():
     else:
         # Local
         session = (
-            SparkSession.builder
-            .appName("pyspark-migration-validation-tests")
+            SparkSession.builder.appName("pyspark-migration-validation-tests")
             .master("local[2]")
             .config("spark.sql.shuffle.partitions", "2")
             .getOrCreate()

@@ -20,8 +20,20 @@ class DeltaReporter:
         self.checks_table = checks_table
 
     def write(self, result: ValidationRunResult) -> None:
-        self.build_runs_dataframe(result).write.mode("append").format("delta").saveAsTable(self.runs_table)
-        self.build_checks_dataframe(result).write.mode("append").format("delta").saveAsTable(self.checks_table)
+        (
+            self.build_runs_dataframe(result)
+            .write.mode("append")
+            .format("delta")
+            .option("mergeSchema", "true")
+            .saveAsTable(self.runs_table)
+        )
+        (
+            self.build_checks_dataframe(result)
+            .write.mode("append")
+            .format("delta")
+            .option("mergeSchema", "true")
+            .saveAsTable(self.checks_table)
+        )
 
     def build_runs_dataframe(self, result: ValidationRunResult) -> DataFrame:
         rows = [
@@ -29,6 +41,8 @@ class DeltaReporter:
                 result.run_id,
                 result.entity,
                 result.environment,
+                result.suite,
+                result.source_pair,
                 result.window_start,
                 result.window_end,
                 result.started_at,
@@ -43,7 +57,8 @@ class DeltaReporter:
             )
         ]
         schema = (
-            "run_id string, entity string, environment string, window_start string, window_end string, "
+            "run_id string, entity string, environment string, suite string, source_pair string, "
+            "window_start string, window_end string, "
             "started_at timestamp, finished_at timestamp, duration_seconds double, overall_status string, "
             "total_checks int, passed_checks int, failed_checks int, warned_checks int, has_blocking_failures boolean"
         )
@@ -55,6 +70,8 @@ class DeltaReporter:
                 result.run_id,
                 result.entity,
                 result.environment,
+                result.suite,
+                result.source_pair,
                 result.window_start,
                 result.window_end,
                 check.check_name,
@@ -69,7 +86,8 @@ class DeltaReporter:
             for check in result.checks
         ]
         schema = (
-            "run_id string, entity string, environment string, window_start string, window_end string, "
+            "run_id string, entity string, environment string, suite string, source_pair string, "
+            "window_start string, window_end string, "
             "check_name string, status string, severity string, left_value string, right_value string, "
             "difference string, tolerance string, details string"
         )
@@ -78,4 +96,3 @@ class DeltaReporter:
 
 def _to_json(value) -> str:
     return json.dumps(value, default=str, sort_keys=True)
-

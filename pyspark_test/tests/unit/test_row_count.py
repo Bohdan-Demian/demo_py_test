@@ -31,4 +31,3 @@ def test_row_count_passes_when_difference_is_inside_tolerance(spark):
     result = check_row_count(left_df, right_df, tolerance_pct=25)
 
     assert result.status == "PASS"
-

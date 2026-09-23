@@ -33,4 +33,3 @@ def test_key_parity_supports_composite_keys(spark):
     assert result.status == "FAIL"
     assert result.details["missing_on_right_count"] == 1
     assert result.details["extra_on_right_count"] == 1
-

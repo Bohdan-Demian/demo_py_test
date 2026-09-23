@@ -15,11 +15,7 @@ from validation.core.result import fail_result, pass_result
 
 def _duplicate_keys(df: DataFrame, key_columns: list[str]) -> DataFrame:
     # Group by business keys and keep only key groups with more than one row.
-    return (
-        df.groupBy(*key_columns)
-        .agg(F.count(F.lit(1)).alias("row_count"))
-        .filter(F.col("row_count") > 1)
-    )
+    return df.groupBy(*key_columns).agg(F.count(F.lit(1)).alias("row_count")).filter(F.col("row_count") > 1)
 
 
 def check_duplicates(

@@ -1,3 +1,5 @@
+import pytest
+
 from validation.runner import run_validation
 
 
@@ -47,6 +49,8 @@ def test_runner_returns_pass_when_enabled_checks_pass(spark):
     assert result.run_id == "run-1"
     assert result.entity == "orders"
     assert result.environment == "unit"
+    assert result.suite == "orders_databricks_to_databricks"
+    assert result.source_pair == "databricks_to_databricks"
     assert result.overall_status == "PASS"
     assert [check.check_name for check in result.checks] == [
         "schema",
@@ -76,3 +80,80 @@ def test_runner_returns_fail_when_blocking_check_fails(spark):
 
     assert result.overall_status == "FAIL"
     assert result.has_blocking_failures is True
+
+
+def test_runner_uses_runtime_table_overrides_without_mutating_config(monkeypatch, spark):
+    loaded_sources = []
+
+    def fake_load_source(spark, source_config, **kwargs):
+        loaded_sources.append((source_config.get("type", "databricks"), source_config["table"]))
+        return spark.createDataFrame([(1,)], "order_id int")
+
+    monkeypatch.setattr("validation.runner.load_source", fake_load_source)
+
+    config = {
+        "entity": "orders",
+        "environment": "demo",
+        "suite": "orders_databricks_parity",
+        "left": {"table": "workspace.default.yaml_aws_orders"},
+        "right": {"table": "workspace.default.yaml_gcp_orders"},
+        "checks": {
+            "row_count": {"enabled": True, "severity": "BLOCKING", "tolerance_pct": 0},
+        },
+    }
+
+    result = run_validation(
+        spark=spark,
+        config=config,
+        entity="orders",
+        environment="dev",
+        suite="orders_dev_databricks_parity",
+        left_type="databricks",
+        right_type="databricks",
+        left_table="aws_share.sales.orders",
+        right_table="gcp_curated.sales.orders",
+    )
+
+    assert loaded_sources == [
+        ("databricks", "aws_share.sales.orders"),
+        ("databricks", "gcp_curated.sales.orders"),
+    ]
+    assert result.environment == "dev"
+    assert result.suite == "orders_dev_databricks_parity"
+    assert result.source_pair == "databricks_to_databricks"
+    assert result.overall_status == "PASS"
+    assert config["left"]["table"] == "workspace.default.yaml_aws_orders"
+    assert config["right"]["table"] == "workspace.default.yaml_gcp_orders"
+
+
+def test_runner_rejects_mixed_source_types(spark):
+    config = {
+        "entity": "orders",
+        "left": {"type": "snowflake", "table": "ORDERS"},
+        "right": {"type": "databricks", "table": "gcp_curated.sales.orders"},
+        "checks": {
+            "row_count": {"enabled": True, "severity": "BLOCKING", "tolerance_pct": 0},
+        },
+    }
+
+    with pytest.raises(ValueError, match="matching source types"):
+        run_validation(spark=spark, config=config)
+
+
+def test_runner_tracks_snowflake_to_snowflake_source_pair(spark):
+    config = {
+        "entity": "orders",
+        "left": {"type": "snowflake", "table": "AWS_ORDERS"},
+        "right": {"type": "snowflake", "table": "GCP_ORDERS"},
+        "checks": {
+            "row_count": {"enabled": True, "severity": "BLOCKING", "tolerance_pct": 0},
+        },
+    }
+    left_df = spark.createDataFrame([(1,)], "order_id int")
+    right_df = spark.createDataFrame([(1,)], "order_id int")
+
+    result = run_validation(spark=spark, config=config, left_df=left_df, right_df=right_df)
+
+    assert result.suite == "orders_snowflake_to_snowflake"
+    assert result.source_pair == "snowflake_to_snowflake"
+    assert result.overall_status == "PASS"

@@ -45,4 +45,3 @@ def fail_result(
         tolerance=tolerance,
         details=details or {},
     )
-

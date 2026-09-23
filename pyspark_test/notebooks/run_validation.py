@@ -1,6 +1,11 @@
 # Databricks notebook source
 dbutils.widgets.text("entity", "orders")
 dbutils.widgets.text("environment", "demo")
+dbutils.widgets.text("suite", "")
+dbutils.widgets.text("left_type", "")
+dbutils.widgets.text("right_type", "")
+dbutils.widgets.text("left_table", "")
+dbutils.widgets.text("right_table", "")
 dbutils.widgets.text("window_start", "")
 dbutils.widgets.text("window_end", "")
 dbutils.widgets.text("config_path", "")
@@ -26,6 +31,11 @@ from validation.runner import run_validation
 
 entity = dbutils.widgets.get("entity")
 environment = dbutils.widgets.get("environment")
+suite = dbutils.widgets.get("suite") or None
+left_type = dbutils.widgets.get("left_type") or None
+right_type = dbutils.widgets.get("right_type") or None
+left_table = dbutils.widgets.get("left_table") or None
+right_table = dbutils.widgets.get("right_table") or None
 window_start = dbutils.widgets.get("window_start") or None
 window_end = dbutils.widgets.get("window_end") or None
 config_path = dbutils.widgets.get("config_path") or str(project_root / "configs" / "demo.yaml")
@@ -35,6 +45,11 @@ config = load_validation_config(config_path, entity=entity, environment=environm
 result = run_validation(
     spark=spark,
     config=config,
+    suite=suite,
+    left_type=left_type,
+    right_type=right_type,
+    left_table=left_table,
+    right_table=right_table,
     window_start=window_start,
     window_end=window_end,
 )

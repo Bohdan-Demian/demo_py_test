@@ -22,4 +22,3 @@ def test_duplicates_fails_when_duplicate_keys_exist(spark):
     assert result.left_value == 1
     assert result.right_value == 1
     assert result.difference == 2
-

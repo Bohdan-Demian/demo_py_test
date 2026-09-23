@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -12,13 +13,13 @@ from validation.checks import (
     check_null_rate,
     check_partition,
     check_partition_hash,
-    check_row_parity,
     check_row_count,
+    check_row_parity,
     check_schema,
 )
 from validation.core.models import CheckResult, ValidationRunResult
 from validation.reporting.delta_reporter import DeltaReporter
-from validation.sources.databricks import load_table
+from validation.sources.loader import load_source
 
 
 def run_validation(
@@ -28,30 +29,55 @@ def run_validation(
     left_df: DataFrame | None = None,
     right_df: DataFrame | None = None,
     run_id: str | None = None,
+    entity: str | None = None,
+    environment: str | None = None,
+    suite: str | None = None,
+    left_type: str | None = None,
+    right_type: str | None = None,
+    left_table: str | None = None,
+    right_table: str | None = None,
     window_start: str | None = None,
     window_end: str | None = None,
     reporter: DeltaReporter | None = None,
 ) -> ValidationRunResult:
+    effective_config = deepcopy(config)
+    if entity is not None:
+        effective_config["entity"] = entity
+    if environment is not None:
+        effective_config["environment"] = environment
+    if suite is not None:
+        effective_config["suite"] = suite
+    if left_type is not None:
+        effective_config.setdefault("left", {})["type"] = left_type
+    if right_type is not None:
+        effective_config.setdefault("right", {})["type"] = right_type
+    if left_table is not None:
+        effective_config.setdefault("left", {})["table"] = left_table
+    if right_table is not None:
+        effective_config.setdefault("right", {})["table"] = right_table
+
     started_at = datetime.now(timezone.utc)
-    entity = config["entity"]
-    environment = config.get("environment", "demo")
-    checks_config = config.get("checks", {})
-    window_config = config.get("window") or {}
+    entity_name = effective_config["entity"]
+    environment_name = effective_config.get("environment", "demo")
+    source_pair = _resolve_source_pair(effective_config.get("left", {}), effective_config.get("right", {}))
+    suite_name = effective_config.get("suite") or f"{entity_name}_{source_pair}"
+    checks_config = effective_config.get("checks", {})
+    window_config = effective_config.get("window") or {}
     window_column = window_config.get("column")
 
     if left_df is None:
-        left_df = load_table(
+        left_df = load_source(
             spark,
-            config["left"]["table"],
+            effective_config["left"],
             window_column=window_column,
             window_start=window_start,
             window_end=window_end,
         )
 
     if right_df is None:
-        right_df = load_table(
+        right_df = load_source(
             spark,
-            config["right"]["table"],
+            effective_config["right"],
             window_column=window_column,
             window_start=window_start,
             window_end=window_end,
@@ -60,7 +86,7 @@ def run_validation(
     results = _run_checks(
         left_df,
         right_df,
-        config.get("keys", []),
+        effective_config.get("keys", []),
         checks_config,
         window_column,
     )
@@ -69,8 +95,10 @@ def run_validation(
 
     result = ValidationRunResult(
         run_id=run_id or str(uuid4()),
-        entity=entity,
-        environment=environment,
+        entity=entity_name,
+        environment=environment_name,
+        suite=suite_name,
+        source_pair=source_pair,
         window_start=window_start,
         window_end=window_end,
         started_at=started_at,
@@ -81,8 +109,8 @@ def run_validation(
 
     if reporter is not None:
         reporter.write(result)
-    elif config.get("reporting", {}).get("enabled", False):
-        reporting_config = config["reporting"]
+    elif effective_config.get("reporting", {}).get("enabled", False):
+        reporting_config = effective_config["reporting"]
         DeltaReporter(
             spark,
             runs_table=reporting_config.get("runs_table", "workspace.default.validation_runs"),
@@ -90,6 +118,23 @@ def run_validation(
         ).write(result)
 
     return result
+
+
+def _resolve_source_pair(left_config: dict, right_config: dict) -> str:
+    left_type = _source_type(left_config)
+    right_type = _source_type(right_config)
+
+    if left_type != right_type:
+        raise ValueError(
+            "Parity validation expects matching source types. "
+            f"Got left.type={left_type!r} and right.type={right_type!r}."
+        )
+
+    return f"{left_type}_to_{right_type}"
+
+
+def _source_type(source_config: dict) -> str:
+    return source_config.get("type", "databricks").lower()
 
 
 def _run_checks(

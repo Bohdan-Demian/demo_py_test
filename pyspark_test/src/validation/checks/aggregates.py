@@ -12,7 +12,6 @@ from pyspark.sql import functions as F
 from validation.core.models import CheckResult
 from validation.core.result import fail_result, pass_result
 
-
 SUPPORTED_AGGREGATIONS = {"sum", "count", "count_distinct", "min", "max", "avg"}
 
 

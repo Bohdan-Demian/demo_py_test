@@ -7,7 +7,6 @@ counts and limited samples of keys missing on the right or extra on the right.
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as F
 
 from validation.core.models import CheckResult
 from validation.core.result import fail_result, pass_result

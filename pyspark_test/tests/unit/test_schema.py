@@ -33,4 +33,3 @@ def test_schema_can_enforce_column_order(spark):
 
     assert result.status == "FAIL"
     assert result.details["order_mismatch"] is True
-

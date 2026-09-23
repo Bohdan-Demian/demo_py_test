@@ -1,10 +1,15 @@
 entity: orders
 environment: demo
+suite: orders_databricks_parity
 
 left:
+  type: databricks
+  # In cross-cloud validation this can be an AWS output table exposed in GCP Databricks through Delta Sharing.
   table: workspace.default.orderscsv
 
 right:
+  type: databricks
+  # In cross-cloud validation this is usually the native GCP output table.
   table: workspace.default.orderscsv
 
 # Fill this with the real business key column after inspecting the Databricks table schema.

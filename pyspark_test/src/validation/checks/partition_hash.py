@@ -13,7 +13,6 @@ from pyspark.sql import functions as F
 from validation.core.models import CheckResult
 from validation.core.result import fail_result, pass_result
 
-
 GLOBAL_PARTITION_COLUMN = "__validation_partition"
 
 

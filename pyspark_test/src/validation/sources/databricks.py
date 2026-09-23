@@ -21,4 +21,3 @@ def load_table(
         df = df.filter(F.col(window_column) < F.lit(window_end))
 
     return df
-

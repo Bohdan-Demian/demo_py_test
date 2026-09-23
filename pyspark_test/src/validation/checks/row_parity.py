@@ -38,7 +38,13 @@ def check_row_parity(
         )
 
     # Resolve compared business columns after removing keys and excluded metadata.
-    resolved_compare_columns = _resolve_compare_columns(left_df, right_df, key_columns, compare_columns, exclude_columns)
+    resolved_compare_columns = _resolve_compare_columns(
+        left_df,
+        right_df,
+        key_columns,
+        compare_columns,
+        exclude_columns,
+    )
     required_columns = set(key_columns) | set(resolved_compare_columns)
 
     # Validate all key and compared columns before building joins.
@@ -149,10 +155,7 @@ def _resolve_compare_columns(
 def _join_condition(key_columns: list[str]) -> Column:
     return reduce(
         lambda left_condition, right_condition: left_condition & right_condition,
-        [
-            _qualified_column("left", column).eqNullSafe(_qualified_column("right", column))
-            for column in key_columns
-        ],
+        [_qualified_column("left", column).eqNullSafe(_qualified_column("right", column)) for column in key_columns],
     )
 
 
@@ -175,9 +178,7 @@ def _mismatch_indicator(column: str, tolerance: float | None) -> Column:
 
 
 def _mismatch_counts_by_column(df: DataFrame, compare_columns: list[str]) -> dict[str, int]:
-    row = df.agg(
-        *[F.sum(F.col(f"__mismatch_{column}")).alias(column) for column in compare_columns]
-    ).first()
+    row = df.agg(*[F.sum(F.col(f"__mismatch_{column}")).alias(column) for column in compare_columns]).first()
     return {column: row[column] for column in compare_columns}
 
 
@@ -196,10 +197,14 @@ def _mismatch_sample(
         ),
         "__match__",
     )
-    return mismatched_rows.withColumn("mismatched_columns", mismatch_names).select(
-        *key_columns,
-        "mismatched_columns",
-    ).limit(sample_limit)
+    return (
+        mismatched_rows.withColumn("mismatched_columns", mismatch_names)
+        .select(
+            *key_columns,
+            "mismatched_columns",
+        )
+        .limit(sample_limit)
+    )
 
 
 def _qualified_column(alias: str, column: str) -> Column:

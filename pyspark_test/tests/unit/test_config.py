@@ -24,4 +24,3 @@ checks:
     assert config["environment"] == "prod"
     assert config["left"]["table"] == "workspace.default.aws_orders"
     assert config["checks"]["row_count"]["enabled"] is True
-

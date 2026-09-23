@@ -31,4 +31,3 @@ def test_null_rate_fails_when_configured_column_is_missing(spark):
 
     assert result.status == "FAIL"
     assert result.details["missing_columns"] == {"left": [], "right": ["email"]}
-

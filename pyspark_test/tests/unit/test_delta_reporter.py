@@ -11,6 +11,8 @@ def test_delta_reporter_builds_run_and_check_dataframes(spark):
         run_id="run-1",
         entity="orders",
         environment="demo",
+        suite="orders_databricks_parity",
+        source_pair="databricks_to_databricks",
         window_start="2026-09-01",
         window_end="2026-09-02",
         started_at=started_at,
@@ -38,6 +40,8 @@ def test_delta_reporter_builds_run_and_check_dataframes(spark):
 
     assert len(runs) == 1
     assert runs[0]["run_id"] == "run-1"
+    assert runs[0]["suite"] == "orders_databricks_parity"
+    assert runs[0]["source_pair"] == "databricks_to_databricks"
     assert runs[0]["overall_status"] == "FAIL"
     assert runs[0]["total_checks"] == 2
     assert runs[0]["failed_checks"] == 1
@@ -45,4 +49,6 @@ def test_delta_reporter_builds_run_and_check_dataframes(spark):
 
     assert len(checks) == 2
     checks_by_name = {row["check_name"]: row for row in checks}
+    assert checks_by_name["row_count"]["suite"] == "orders_databricks_parity"
+    assert checks_by_name["row_count"]["source_pair"] == "databricks_to_databricks"
     assert checks_by_name["row_count"]["details"] == '{"absolute_difference": 1}'

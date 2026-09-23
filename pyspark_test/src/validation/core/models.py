@@ -26,6 +26,8 @@ class ValidationRunResult:
     run_id: str
     entity: str
     environment: str
+    suite: str
+    source_pair: str
     window_start: str | None
     window_end: str | None
     started_at: datetime
@@ -36,4 +38,3 @@ class ValidationRunResult:
     @property
     def has_blocking_failures(self) -> bool:
         return any(check.is_blocking_failure for check in self.checks)
-

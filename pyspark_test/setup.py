@@ -6,5 +6,5 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     install_requires=["pyspark>=3.5,<4.0", "PyYAML>=6.0"],
-    extras_require={"dev": ["pytest>=8.0", "chispa>=0.10.0"]},
+    extras_require={"dev": ["pytest>=8.0", "chispa>=0.10.0", "ruff>=0.8.0"]},
 )
