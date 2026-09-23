@@ -9,14 +9,13 @@ dbutils.widgets.text("right_table", "")
 dbutils.widgets.text("window_start", "")
 dbutils.widgets.text("window_end", "")
 dbutils.widgets.text("config_path", "")
+dbutils.widgets.dropdown("write_results", "false", ["false", "true"])
 
 # COMMAND ----------
 
 import os
 import sys
 from pathlib import Path
-
-from pyspark.sql import functions as F
 
 notebook_path = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
 project_root = Path("/Workspace") / notebook_path.lstrip("/")
@@ -27,6 +26,7 @@ os.chdir(project_root)
 sys.path.insert(0, str(project_root / "src"))
 
 from validation.config import load_validation_config
+from validation.reporting.delta_reporter import DeltaReporter
 from validation.runner import run_validation
 
 entity = dbutils.widgets.get("entity")
@@ -39,8 +39,15 @@ right_table = dbutils.widgets.get("right_table") or None
 window_start = dbutils.widgets.get("window_start") or None
 window_end = dbutils.widgets.get("window_end") or None
 config_path = dbutils.widgets.get("config_path") or str(project_root / "configs" / "demo.yaml")
+write_results = dbutils.widgets.get("write_results").lower() == "true"
 
 config = load_validation_config(config_path, entity=entity, environment=environment)
+reporting_config = config.get("reporting", {})
+reporter = DeltaReporter(
+    spark,
+    runs_table=reporting_config.get("runs_table", "workspace.default.validation_runs"),
+    checks_table=reporting_config.get("checks_table", "workspace.default.validation_check_results"),
+)
 
 result = run_validation(
     spark=spark,
@@ -52,13 +59,12 @@ result = run_validation(
     right_table=right_table,
     window_start=window_start,
     window_end=window_end,
+    reporter=reporter,
+    write_results=write_results,
 )
 
-runs_table = config.get("reporting", {}).get("runs_table", "workspace.default.validation_runs")
-checks_table = config.get("reporting", {}).get("checks_table", "workspace.default.validation_check_results")
-
-display(spark.table(runs_table).where(F.col("run_id") == result.run_id))
-display(spark.table(checks_table).where(F.col("run_id") == result.run_id).orderBy("check_name"))
+display(reporter.build_runs_dataframe(result))
+display(reporter.build_checks_dataframe(result).orderBy("check_name"))
 
 if result.has_blocking_failures:
     raise RuntimeError(f"Blocking validation checks failed for run_id={result.run_id}")

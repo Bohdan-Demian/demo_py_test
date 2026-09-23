@@ -4,12 +4,10 @@ suite: orders_databricks_self_compare
 
 left:
   type: databricks
-  # In cross-cloud validation this can be an AWS output table exposed in GCP Databricks through Delta Sharing.
   table: workspace.default.orderscsv
 
 right:
   type: databricks
-  # In cross-cloud validation this is usually the native GCP output table.
   table: workspace.default.orderscsv
 
 keys:
@@ -94,7 +92,6 @@ checks:
       total_amount: 0
 
 reporting:
-  # Notebooks default to dry-run display mode. Set write_results=true in the notebook/job for official runs.
   enabled: false
   runs_table: workspace.default.validation_runs
   checks_table: workspace.default.validation_check_results

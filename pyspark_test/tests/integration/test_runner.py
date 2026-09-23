@@ -157,3 +157,64 @@ def test_runner_tracks_snowflake_to_snowflake_source_pair(spark):
     assert result.suite == "orders_snowflake_to_snowflake"
     assert result.source_pair == "snowflake_to_snowflake"
     assert result.overall_status == "PASS"
+
+
+def test_runner_write_results_false_skips_reporter_even_when_config_enables_reporting(spark):
+    class FakeReporter:
+        def __init__(self):
+            self.write_calls = 0
+
+        def write(self, result):
+            self.write_calls += 1
+
+    reporter = FakeReporter()
+    config = {
+        "entity": "orders",
+        "checks": {
+            "row_count": {"enabled": True, "severity": "BLOCKING", "tolerance_pct": 0},
+        },
+        "reporting": {"enabled": True},
+    }
+    left_df = spark.createDataFrame([(1,)], "order_id int")
+    right_df = spark.createDataFrame([(1,)], "order_id int")
+
+    run_validation(
+        spark=spark,
+        config=config,
+        left_df=left_df,
+        right_df=right_df,
+        reporter=reporter,
+        write_results=False,
+    )
+
+    assert reporter.write_calls == 0
+
+
+def test_runner_write_results_true_uses_reporter(spark):
+    class FakeReporter:
+        def __init__(self):
+            self.write_calls = 0
+
+        def write(self, result):
+            self.write_calls += 1
+
+    reporter = FakeReporter()
+    config = {
+        "entity": "orders",
+        "checks": {
+            "row_count": {"enabled": True, "severity": "BLOCKING", "tolerance_pct": 0},
+        },
+    }
+    left_df = spark.createDataFrame([(1,)], "order_id int")
+    right_df = spark.createDataFrame([(1,)], "order_id int")
+
+    run_validation(
+        spark=spark,
+        config=config,
+        left_df=left_df,
+        right_df=right_df,
+        reporter=reporter,
+        write_results=True,
+    )
+
+    assert reporter.write_calls == 1

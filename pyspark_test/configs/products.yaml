@@ -1,22 +1,20 @@
-entity: orders
+entity: products
 environment: demo
-suite: orders_databricks_self_compare
+suite: products_databricks_self_compare
 
 left:
   type: databricks
-  # In cross-cloud validation this can be an AWS output table exposed in GCP Databricks through Delta Sharing.
-  table: workspace.default.orderscsv
+  table: workspace.default.productscsv
 
 right:
   type: databricks
-  # In cross-cloud validation this is usually the native GCP output table.
-  table: workspace.default.orderscsv
+  table: workspace.default.productscsv
 
 keys:
-  - order_id
+  - product_id
 
 window:
-  column: order_date
+  column: null
 
 exclude_columns: []
 
@@ -27,9 +25,9 @@ checks:
     enforce_order: false
 
   partition:
-    enabled: true
+    enabled: false
     severity: BLOCKING
-    column: order_date
+    column: null
 
   row_count:
     enabled: true
@@ -50,40 +48,35 @@ checks:
     enabled: true
     severity: NON_BLOCKING
     columns:
-      - customer_id
-      - product_id
-      - order_date
-      - quantity
-      - total_amount
+      - product_name
+      - category
+      - price
     tolerances_pct: {}
 
   aggregates:
     enabled: true
     severity: BLOCKING
     group_by:
-      - order_date
+      - category
     metrics:
-      quantity:
-        - sum
-      total_amount:
-        - sum
+      product_id:
+        - count
+        - count_distinct
+      price:
         - min
         - max
         - avg
-      order_id:
-        - count
     tolerance: 0
 
   partition_hash:
     enabled: true
     severity: BLOCKING
-    partition_column: order_date
+    partition_column: null
     business_columns:
-      - order_id
-      - customer_id
       - product_id
-      - quantity
-      - total_amount
+      - product_name
+      - category
+      - price
 
   row_parity:
     enabled: true
@@ -91,10 +84,9 @@ checks:
     compare_columns: null
     exclude_columns: []
     numeric_tolerances:
-      total_amount: 0
+      price: 0
 
 reporting:
-  # Notebooks default to dry-run display mode. Set write_results=true in the notebook/job for official runs.
   enabled: false
   runs_table: workspace.default.validation_runs
   checks_table: workspace.default.validation_check_results

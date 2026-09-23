@@ -1,0 +1,34 @@
+{
+  "runs": [
+    {
+      "config_path": "/Workspace/Repos/<user>/<repo>/pyspark_test/configs/customers.yaml",
+      "entity": "customers",
+      "environment": "dev",
+      "suite": "customers_databricks_self_compare",
+      "left_type": "databricks",
+      "right_type": "databricks",
+      "left_table": "workspace.default.customerscsv",
+      "right_table": "workspace.default.customerscsv"
+    },
+    {
+      "config_path": "/Workspace/Repos/<user>/<repo>/pyspark_test/configs/orders.yaml",
+      "entity": "orders",
+      "environment": "dev",
+      "suite": "orders_databricks_self_compare",
+      "left_type": "databricks",
+      "right_type": "databricks",
+      "left_table": "workspace.default.orderscsv",
+      "right_table": "workspace.default.orderscsv"
+    },
+    {
+      "config_path": "/Workspace/Repos/<user>/<repo>/pyspark_test/configs/products.yaml",
+      "entity": "products",
+      "environment": "dev",
+      "suite": "products_databricks_self_compare",
+      "left_type": "databricks",
+      "right_type": "databricks",
+      "left_table": "workspace.default.productscsv",
+      "right_table": "workspace.default.productscsv"
+    }
+  ]
+}

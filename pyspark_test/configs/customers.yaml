@@ -1,22 +1,20 @@
-entity: orders
+entity: customers
 environment: demo
-suite: orders_databricks_self_compare
+suite: customers_databricks_self_compare
 
 left:
   type: databricks
-  # In cross-cloud validation this can be an AWS output table exposed in GCP Databricks through Delta Sharing.
-  table: workspace.default.orderscsv
+  table: workspace.default.customerscsv
 
 right:
   type: databricks
-  # In cross-cloud validation this is usually the native GCP output table.
-  table: workspace.default.orderscsv
+  table: workspace.default.customerscsv
 
 keys:
-  - order_id
+  - customer_id
 
 window:
-  column: order_date
+  column: signup_date
 
 exclude_columns: []
 
@@ -29,7 +27,7 @@ checks:
   partition:
     enabled: true
     severity: BLOCKING
-    column: order_date
+    column: signup_date
 
   row_count:
     enabled: true
@@ -50,51 +48,44 @@ checks:
     enabled: true
     severity: NON_BLOCKING
     columns:
-      - customer_id
-      - product_id
-      - order_date
-      - quantity
-      - total_amount
+      - first_name
+      - last_name
+      - country
+      - signup_date
     tolerances_pct: {}
 
   aggregates:
     enabled: true
     severity: BLOCKING
     group_by:
-      - order_date
+      - country
     metrics:
-      quantity:
-        - sum
-      total_amount:
-        - sum
+      customer_id:
+        - count
+        - count_distinct
+      signup_date:
         - min
         - max
-        - avg
-      order_id:
-        - count
     tolerance: 0
 
   partition_hash:
     enabled: true
     severity: BLOCKING
-    partition_column: order_date
+    partition_column: signup_date
     business_columns:
-      - order_id
       - customer_id
-      - product_id
-      - quantity
-      - total_amount
+      - first_name
+      - last_name
+      - country
 
   row_parity:
     enabled: true
     severity: BLOCKING
     compare_columns: null
     exclude_columns: []
-    numeric_tolerances:
-      total_amount: 0
+    numeric_tolerances: {}
 
 reporting:
-  # Notebooks default to dry-run display mode. Set write_results=true in the notebook/job for official runs.
   enabled: false
   runs_table: workspace.default.validation_runs
   checks_table: workspace.default.validation_check_results

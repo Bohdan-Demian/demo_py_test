@@ -39,6 +39,7 @@ def run_validation(
     window_start: str | None = None,
     window_end: str | None = None,
     reporter: DeltaReporter | None = None,
+    write_results: bool | None = None,
 ) -> ValidationRunResult:
     effective_config = deepcopy(config)
     if entity is not None:
@@ -107,10 +108,17 @@ def run_validation(
         checks=results,
     )
 
+    should_write_results = (
+        effective_config.get("reporting", {}).get("enabled", False) if write_results is None else write_results
+    )
+
+    if not should_write_results:
+        return result
+
     if reporter is not None:
         reporter.write(result)
-    elif effective_config.get("reporting", {}).get("enabled", False):
-        reporting_config = effective_config["reporting"]
+    else:
+        reporting_config = effective_config.get("reporting", {})
         DeltaReporter(
             spark,
             runs_table=reporting_config.get("runs_table", "workspace.default.validation_runs"),

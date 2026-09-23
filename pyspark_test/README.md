@@ -10,7 +10,8 @@ Databricks Job
   -> Python validation runner
   -> load left/right DataFrames
   -> run reusable checks
-  -> write Delta result tables
+  -> display validation results
+  -> optionally write official runs to Delta result tables
   -> fail the job when blocking checks fail
 ```
 
@@ -24,6 +25,8 @@ configs/
 
 notebooks/
   run_validation.py
+  run_validation_batch.py
+  show_validation_runs.py
 
 src/
   validation/
@@ -89,6 +92,14 @@ The demo config lives in:
 
 ```text
 configs/demo.yaml
+```
+
+Ready Databricks self-compare configs aligned with the current `workspace.default` demo tables:
+
+```text
+configs/customers.yaml  -> workspace.default.customerscsv
+configs/orders.yaml     -> workspace.default.orderscsv
+configs/products.yaml   -> workspace.default.productscsv
 ```
 
 For the first smoke test both sides point to the same Databricks table:
@@ -209,7 +220,7 @@ Detailed check documentation lives in [docs/checks.md](docs/checks.md).
 
 ## Databricks Execution
 
-Use this notebook as the Databricks Job task:
+Use this notebook for a single validation run:
 
 ```text
 notebooks/run_validation.py
@@ -228,6 +239,7 @@ right_table
 window_start
 window_end
 config_path
+write_results
 ```
 
 Example windowed run:
@@ -243,9 +255,12 @@ right_table=gcp_curated.sales.orders
 window_start=2026-09-01
 window_end=2026-09-02
 config_path=/Workspace/Repos/<user>/<repo>/pyspark_test/configs/demo.yaml
+write_results=false
 ```
 
 `left_type`, `right_type`, `left_table`, and `right_table` are runtime overrides. Keep YAML as the stable default config, then let Airflow/Databricks Workflows pass the exact output sources produced by the AWS and GCP DAG runs.
+
+`write_results=false` is the default. The notebook displays run/check DataFrames from memory and does not append to Delta result tables unless `write_results=true`. Use `write_results=true` only for official validation runs that should appear in dashboards/history.
 
 For Snowflake parity use a separate job/config with:
 
@@ -259,18 +274,66 @@ right_table=ORDERS
 
 Connection options still come from YAML or secret-backed environment variables.
 
-The notebook:
+The single-run notebook:
 
 - loads YAML config
 - calls `validation.runner.run_validation(...)`
-- displays run/check result rows
+- displays run/check result rows from the current result
+- writes result rows only when `write_results=true`
 - raises `RuntimeError` if any `BLOCKING` check fails
 
 It does not run pytest.
 
+For repeated DAG-style validation, use:
+
+```text
+notebooks/run_validation_batch.py
+```
+
+Batch widgets:
+
+```text
+environment
+runs_json
+write_results
+fail_on_blocking
+```
+
+`runs_json` can be a JSON object with a `runs` list or a plain JSON list. Each item must include its own `config_path` and is passed as runtime overrides to the same validation runner.
+
+A ready-to-copy example lives in:
+
+```text
+configs/runs_databricks_example.json
+```
+
+Shape:
+
+```json
+{
+  "runs": [
+    {
+      "config_path": "/Workspace/Repos/<user>/<repo>/pyspark_test/configs/orders.yaml",
+      "entity": "orders",
+      "suite": "orders_databricks_self_compare",
+      "left_table": "workspace.default.orderscsv",
+      "right_table": "workspace.default.orderscsv"
+    }
+  ]
+}
+```
+
+The batch notebook runs all validations, collects result DataFrames, displays the combined run/check output at the end, and writes to Delta result tables only when `write_results=true`.
+
+To inspect official result history, use:
+
+```text
+notebooks/show_validation_runs.py
+```
+
 ## Result Tables
 
-The Delta reporter appends to:
+Official runs append to:
 
 ```text
 workspace.default.validation_runs
