@@ -21,6 +21,12 @@ sys.dont_write_bytecode = True
 os.chdir(project_root)
 sys.path.insert(0, str(project_root / "src"))
 
+# Databricks clusters keep imported modules alive between notebook reruns.
+# Drop project modules so a Git pull/source edit is picked up without stale validation code.
+for module_name in list(sys.modules):
+    if module_name == "validation" or module_name.startswith("validation."):
+        sys.modules.pop(module_name)
+
 from validation.config import load_validation_config
 from validation.reporting.delta_reporter import DeltaReporter
 from validation.runner import run_validation
